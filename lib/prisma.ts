@@ -11,9 +11,16 @@ const connectionString = process.env.DATABASE_URL;
 
 let prismaClient: PrismaClient;
 
+// For Vercel/serverless, use adapter only if DATABASE_URL is available
 if (connectionString) {
   try {
-    const pool = new Pool({ connectionString });
+    const pool = new Pool({ 
+      connectionString,
+      // Optimize for serverless
+      max: 1,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    });
     const adapter = new PrismaPg(pool);
     
     prismaClient = new PrismaClient({
@@ -22,13 +29,13 @@ if (connectionString) {
     });
   } catch (error) {
     console.error("Failed to create Prisma client with adapter:", error);
-    // Fallback to standard client
+    // Fallback to standard client (works with connection string in datasource)
     prismaClient = new PrismaClient({
       log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
     });
   }
 } else {
-  // No DATABASE_URL, use standard client (will fail at runtime if no connection)
+  // No DATABASE_URL, use standard client
   prismaClient = new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
   });
